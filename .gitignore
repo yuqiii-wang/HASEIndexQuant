@@ -75,3 +75,5 @@ coverage/
 Icon?
 .Spotlight-V100
 .Trashes
+
+trained_gbdt_model.pkl

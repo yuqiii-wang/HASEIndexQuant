@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import datetime
+import datetime, os
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates # For date formatting on plots
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
@@ -17,20 +17,26 @@ GBDT_FEATURE_COLUMNS = ['SMA_short', 'SMA_long', 'RSI', 'ROC',
                         'Volatility', 'Momentum', 'Upper_Bollinger', 'Lower_Bollinger']
 
 # --- 1. Data Loading and Preparation ---
-def load_hsi_data(file_path="dataset/HSI_min_20250201-20250430.xlsx"):
+def load_data(file_path="dataset/HSI_min_20250201-20250430.xlsx"):
     """Loads HSI data from Excel and sets datetime index."""
     hsi_df = pd.read_excel(file_path, index_col="index")
     hsi_df['datetime'] = pd.to_datetime(hsi_df['date'] + ' ' + hsi_df['time'])
     hsi_df = hsi_df.set_index('datetime')
+    hsi_df = hsi_df.drop(columns=["business date", 'date', 'time'])
 
-    if 'close' in hsi_df.columns:
-        hsi_df['close'] = pd.to_numeric(hsi_df['close'], errors='coerce')
-        if hsi_df['close'].isnull().all():
-            print("Warning: 'close' column is all NaNs after loading and pd.to_numeric(errors='coerce'). Check Excel file.")
-    else:
-        print("Warning: 'close' column not found. Feature calculation will likely fail.")
-        hsi_df['close'] = np.nan 
-    return hsi_df
+    hsfi_df = pd.read_excel(os.path.join("dataset", "HSFI_min_20250201-20250430.xlsx"),
+                    index_col="index")
+    hsfi_df['datetime'] = pd.to_datetime(hsfi_df['date'] + ' ' + hsfi_df['time'])
+    hsfi_df = hsfi_df.set_index('datetime')
+    hsfi_df = hsfi_df.drop(columns=["business date", 'date', 'time'])
+
+    hscat100_df = pd.read_excel(os.path.join("dataset", "HSCAT100_min_20250201-20250430.xlsx"),
+                    index_col="index")
+    hscat100_df['datetime'] = pd.to_datetime(hscat100_df['date'] + ' ' + hscat100_df['time'])
+    hscat100_df = hscat100_df.set_index('datetime')
+    hscat100_df = hscat100_df.drop(columns=["business date", 'date', 'time'])
+
+    return hsi_df, hsfi_df, hscat100_df
 
 # --- Plotting function (largely unchanged from your snippet, with minor robusteness enhancements) ---
 def plot_detailed_day_simulation(day_data_full_resolution,

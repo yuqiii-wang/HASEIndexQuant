@@ -5,8 +5,9 @@ from sklearn.metrics import mean_squared_error, r2_score
 
 GBDT_PREDICTION_HORIZON_MINUTES = 5 # Predict price 5 minutes ahead
 GBDT_TARGET_COLUMN = f'target_price_ratio_h{GBDT_PREDICTION_HORIZON_MINUTES}'
-GBDT_FEATURE_COLUMNS = ['SMA_short', 'SMA_long', 'RSI', 'ROC', 
-                        'Volatility', 'Momentum', 'Upper_Bollinger', 'Lower_Bollinger']
+GBDT_FEATURE_COLUMNS = ['SMA_short', 'SMA_long', 'RSI', 'ROC',
+                        'ROC_10min', 'ROC_15min', 'ROC_20min', 'ROC_60min', 
+                        'Momentum', 'Upper_Bollinger', 'Lower_Bollinger']
 
 # --- New Helper Function for GBDT Target ---
 def add_max_future_price_target(df, lookahead_periods, price_col='close', new_target_col_name_template='max_price_next_{}m'):
@@ -39,7 +40,9 @@ def add_max_future_price_target(df, lookahead_periods, price_col='close', new_ta
     return df, actual_new_target_col_name
 
 # --- GBDT Model Training and Evaluation ---
-def train_evaluate_gbdt_model(df_full_features, train_dates_list, validation_dates_list):
+def train_evaluate_gbdt_model(df_full_features:pd.DataFrame, 
+                              train_dates_list:list[pd.DatetimeIndex],
+                              validation_dates_list:list[pd.DatetimeIndex]):
     # This function will now use the globally defined GBDT_TARGET_COLUMN,
     # which should be the new profit-based target (e.g., 'max_price_next_10m')
     # and the globally defined GBDT_FEATURE_COLUMNS.
