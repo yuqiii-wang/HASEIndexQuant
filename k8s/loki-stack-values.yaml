@@ -1,0 +1,26 @@
+# loki-stack-values.yaml
+
+# Loki configuration
+loki:
+  persistence:
+    enabled: true
+    size: 30Gi # Adjust as needed
+    # storageClassName: "your-storage-class"
+  # auth_enabled: false # Keep it simple for now
+
+# Promtail configuration (part of loki-stack)
+promtail:
+  enabled: true
+  # config:
+  #   clients:
+  #     - url: http://loki-stack.loki.svc.cluster.local:3100/loki/api/v1/push
+  # The chart usually figures this out. If Promtail has issues connecting, specify the Loki URL explicitly.
+  # The service name will be <releaseName>-loki, e.g., loki-stack-loki
+
+# Disable Grafana if you're using the one from kube-prometheus-stack
+grafana:
+  enabled: false
+
+# Other components in the stack (fluent-bit, logstash, etc. - disable if not needed)
+fluent-bit:
+  enabled: false # We're using Promtail

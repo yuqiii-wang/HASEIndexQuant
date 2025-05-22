@@ -1,0 +1,86 @@
+# kube-prometheus-stack-values.yaml
+# Global settings
+# namespaceOverride: "monitoring" # Not needed if installing into 'monitoring' explicitly
+
+# Prometheus Configuration
+prometheus:
+  prometheusSpec:
+    # --- TimescaleDB Remote Write/Read via Promscale ---
+    remoteWrite:
+      - url: "http://promscale.monitoring.svc.cluster.local:9201/write"
+        # queueConfig:
+        #   maxSamplesPerSend: 1000
+        #   maxShards: 20
+        #   capacity: 20000
+    remoteRead:
+      - url: "http://promscale.monitoring.svc.cluster.local:9201/read"
+        readRecent: true # Important: allows Grafana to query recent data from Prometheus itself
+
+    # --- Prometheus Local Storage ---
+    retention: "6h" # Keep short retention locally, long-term is in TimescaleDB
+    # storageSpec: # Default is emptyDir, change for persistence if needed for short-term data
+    #   volumeClaimTemplate:
+    #     spec:
+    #       accessModes: ["ReadWriteOnce"]
+    #       resources:
+    #         requests:
+    #           storage: 20Gi # Adjust as needed
+    #       # storageClassName: "your-storage-class"
+
+    # Enable scraping of Promscale itself (optional, but good for monitoring Promscale)
+    # additionalScrapeConfigs:
+    # - job_name: 'promscale'
+    #   static_configs:
+    #   - targets: ['promscale.monitoring.svc.cluster.local:9201']
+
+# Grafana Configuration
+grafana:
+  enabled: true
+  # adminPassword: "YourStrongGrafanaPassword" # Set or get from secret later
+  persistence:
+    enabled: true
+    size: 10Gi
+  service:
+    type: NodePort
+    port: 80
+    nodePort: 30080 # Exposed port on localhost/node IP
+    # storageClassName: "your-storage-class"
+  # Pre-configure Loki datasource (will do this manually later for clarity, or you can add here)
+  # --- Add Loki Datasource ---
+  additionalDataSources:
+    - name: Loki # Name that will appear in Grafana
+      type: loki
+      # IMPORTANT: Adjust the URL based on your actual Loki service name and namespace.
+      # Based on your Promtail config, this is likely:
+      url: http://loki-stack.loki.svc.cluster.local:3100
+      #
+      # If your Loki Helm release was named 'my-loki-release' and it's in the 'loki-namespace',
+      # and the chart created a service '<releaseName>-loki', the URL would be:
+      # url: http://my-loki-release-loki.loki-namespace.svc.cluster.local:3100
+      #
+      # If Loki is in the SAME namespace as Grafana (e.g., 'monitoring') and release name 'loki-instance',
+      # and service is 'loki-instance-loki', it would be:
+      # url: http://loki-instance-loki.monitoring.svc.cluster.local:3100
+      access: proxy # Grafana backend makes requests to Loki (recommended)
+      isDefault: true # Optional: Make this the default Loki data source in Explore
+      jsonData: {} # No specific extra JSON data needed for basic setup
+      editable: true # Allows editing in Grafana UI if needed (default is false for provisioned datasources)
+
+# Alertmanager Configuration
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 5Gi
+        #   # storageClassName: "your-storage-class"
+
+# Disable components you don't need (e.g., if you have your own Grafana)
+# prometheus-node-exporter:
+#   enabled: true
+# kube-state-metrics:
+#   enabled: true

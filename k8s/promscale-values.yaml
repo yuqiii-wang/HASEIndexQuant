@@ -1,0 +1,28 @@
+# promscale-values.yaml
+image:
+  repository: timescaledb/promscale
+  tag: "0.17.0" # Check for the latest stable version
+
+# Connection to TimescaleDB
+# Uses the secret created by the TimescaleDB chart
+connection:
+  secret: "timescaledb-credentials" # Name of the secret from TimescaleDB deployment
+  dbName: "postgres"                 # Default DB, or specify if you created another
+  # userKey: "PATRONI_SUPERUSER_USERNAME" # Default user is 'postgres'
+  passwordKey: "PATRONI_SUPERUSER_PASSWORD"
+  host: "tsdb-cluster-timescaledb.timescaledb" # Service name of TimescaleDB
+  port: 5432
+  sslMode: "prefer" # or "require" if SSL is enforced
+
+# Enable Prometheus remote write/read endpoints
+prometheus:
+  enabled: true
+  port: 9201
+
+# Optional: OpenTelemetry Traces (disable if not needed)
+traces:
+  enabled: false
+
+# Persistence (Promscale itself is stateless if TimescaleDB is persistent, but can cache)
+# persistence:
+#   enabled: false

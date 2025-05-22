@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: udp-client-deployment
+  labels:
+    app: udp-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: udp-client
+  template:
+    metadata:
+      labels:
+        app: udp-client
+    spec:
+      containers:
+      - name: udp-client-container
+        image: your-dockerhub-username/udp-client:latest # Replace with your image name
+        ports:
+        - containerPort: 9999
+          protocol: UDP
+        env:
+        - name: CLIENT_LISTEN_PORT
+          value: "9999"
+        # Add other ENV VARS for client if needed:
+        # - name: MAX_ORDERED_DATA_SIZE
+        #   value: "5000"
+        # - name: PARTIAL_DATA_CLEANUP_INTERVAL_S
+        #   value: "30"
+        # - name: PARTIAL_DATA_TIMEOUT_S
+        #   value: "10"
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "0.2"
+          requests:
+            memory: "64Mi"
+            cpu: "0.1"

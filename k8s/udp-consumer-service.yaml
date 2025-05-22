@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: udp-client-service
+  labels:
+    app: udp-client
+spec:
+  selector:
+    app: udp-client
+  ports:
+    - protocol: UDP
+      port: 9999 # Port the service listens on
+      targetPort: 9999 # Port the client container listens on
+  type: ClusterIP # Use ClusterIP if server is in the same cluster.
+                  # Use NodePort or LoadBalancer for external access or simpler local testing (e.g. Minikube)
+  # If using NodePort:
+  # type: NodePort
+  # ports:
+  #   - protocol: UDP
+  #     port: 9999
+  #     targetPort: 9999
+  #     nodePort: 30999 # Example node port

@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: udp-server-deployment
+  labels:
+    app: udp-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: udp-server
+  template:
+    metadata:
+      labels:
+        app: udp-server
+    spec:
+      containers:
+      - name: udp-server-container
+        image: your-dockerhub-username/udp-server:latest # Replace with your image name
+        env:
+        - name: UDP_CLIENT_SERVICE_HOST
+          value: "udp-client-service" # K8s service DNS name for the client
+        - name: UDP_CLIENT_SERVICE_PORT
+          value: "9999" # Port defined in udp-client-service
+        # - name: SERVER_SEND_INTERVAL_MS # Optional: to slow down for testing
+        #   value: "10" # send every 10ms
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "0.5" # Server might be more CPU intensive if sending very fast
+          requests:
+            memory: "64Mi"
+            cpu: "0.2"

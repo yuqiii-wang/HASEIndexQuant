@@ -1,0 +1,64 @@
++-------------------------------------------------------------------------------------------------+
+| Kubernetes Node 1 (Optimized for Low Latency - CPU Pinning, hostNetwork where appropriate, PTP) |
+|                                                                                                 |
+|  +-----------------------+       +-----------------------+  (hostNetwork: true, CPU pinning)    |
+|  | UDP Ingest Pod A      |       | UDP Ingest Pod B      |  (PTP for timestamping)              |
+|  | (Python, asyncio)     |       | (Python, asyncio)     |                                      |
+|  | - Recv UDP_A, MinParse|       | - Recv UDP_B, MinParse|                                      |
+|  | - Pub to MQ (Stream:  |       | - Pub to MQ (Stream:  |                                      |
+|  |   `raw_market_data`)  |       |   `raw_market_data`)  |                                      |
+|  +--------+--------------+       +--------+--------------+                                      |
+|           |                               |                                                    |
+|           +---------------+---------------+                                                    |
+|                           |                                                                     |
+|  +------------------------V-------------------------+  (StatefulSet pod instance on Node 1)     |
+|  | Message Queue (MQ) Pod                         |  (e.g., Redis Stream Master/Primary)        |
+|  | - Stream: `raw_market_data` (from Ingest)      |                                             |
+|  | - Stream: `order_instructions` (to Order GW)   |                                             |
+|  +------------------------+-------------------------+                                           |
+|      /|\ (Consume `raw_market_data`)   | (Consume `raw_market_data`)                            |
+|       |                                |                                                        |
+|       |                                |----------------------|                                                       |
+| +-----V---------------------------------+  +------------------V--------------------------------+ |
+| | Real-Time Strategy Engine Pod         |  | Feature Calculation Engine Pod                  | |
+| | (Python, asyncio, very light compute) |  | (Python, asyncio, NumPy, Numba/Cython, Pandas)  | |
+| | - Subscribes to MQ:                   |  | - Subscribes to MQ:                             | |
+| |   - `raw_market_data`                 |  |   - `raw_market_data`                           | |
+| |   - `calculated_features` (optional)  |  | - Computes short/medium-term indicators, stats  | |
+| | - Minimal tick processing             |  |   (e.g., VWAP, RSI, moving averages, micro-     | |
+| | - Combines tick with latest features  |  |    structure features)                          | |
+| | - Fast Signal Generation (e.g. rules)|  | - Publishes to MQ (Stream: `calculated_features`)| |
+| | - Pre-trade Risk Checks (light)       |  |   (periodically or on significant change)       | |
+| | - Pub to MQ (`order_instructions`)    |  | - Potentially reads from/writes to a shared     | |
+| +-------------+-------------------------+  |   in-memory store (e.g., Redis) for faster     | |
+|               |                            |   state sharing if MQ is too slow for updates.  | |
+|               |                            +------------------+--------------------------------+ |
+|               |                                               | (Optionally, for more complex   |
+|               |                                               |  or less frequent features)     |
+|               |                                               |                                 |
+| +-------------V-----------------+                             |                                 |
+| | Order Gateway Pod             |                             |                                 |
+| | ... (as before) ...           |                             |                                 |
+| +-------------------------------+                             +---------------------------------V-+
+|                                                                 | Market Data Archiver Pod          |
+|                                                                 | (Python, asyncio)                 |
+|                                                                 | - Subscribes to MQ                |
+|                                                                 |   (Stream: `raw_market_data`)     |
+| +--------------------------+                                    | - Batch writes to TimescaleDB     |
+| | TimescaleDB Pod          |<------------------------------------+-----------------------------------+
+| | (StatefulSet instance)   |
+| | - Stores market data     |
+| | - Source for historical  |
+| |   analytics / backtesting|
+| +--------------------------+
+|  (Can be on Node 1 if small, ideally Node 2+ for larger setups or if Feature Engine queries it)
+|
++-------------------------------------------------------------------------------------------------+
+| Kubernetes Node 2+ (General Purpose / Analytics / HA)                                           |
+| - Additional Strategy Engine Replicas (if horizontally scalable)                                |
+| - Additional Feature Calculation Engine Replicas (if tasks can be sharded)                      |
+| - MQ Replicas/Followers                                                                         |
+| - TimescaleDB Replicas/Standbys / Dedicated Analytics Nodes querying TimescaleDB                |
+| - Offline Model Training Pods (reading from TimescaleDB)                                        |
+| - Monitoring, Logging, Management Plane                                                         |
++-------------------------------------------------------------------------------------------------+

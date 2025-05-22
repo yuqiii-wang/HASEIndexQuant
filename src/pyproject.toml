@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "market-data-consumer"
+version = "0.1.0"
+description = "UDP market data consumer with Protobuf, NATS, and Prometheus"
+authors = ["Your Name <you@example.com>"]
+readme = "README.md" # Optional
+packages = [{include = "market_data_consumer"}]
+
+[tool.poetry.dependencies]
+python = "^3.12" # Or your preferred Python version
+nats-py = "^2.10.0"
+prometheus-client = "^0.17.0"
+protobuf = "^4.23.0" # Or latest 3.x if you have specific needs, 4.x is current
+grpcio = "^1.71.0"
+
+[tool.poetry.group.dev.dependencies]
+grpcio-tools = "^1.57.0" # For generating protobuf stubs
+
+[tool.poetry.scripts]
+# This allows you to run 'poetry run market-consumer'
+market-consumer = "market_data_consumer.app:run_main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

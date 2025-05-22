@@ -1,0 +1,119 @@
+# my-pg16-values.yaml
+
+# --- Image Configuration ---
+# The Bitnami chart uses its own PostgreSQL images by default.
+# You primarily need to specify the tag for the PostgreSQL version.
+image:
+  # registry: docker.io # Default, usually not needed
+  # repository: bitnami/postgresql # This is the default for the Bitnami chart
+  # To use the official Docker Hub postgres image instead:
+  # repository: postgres
+  tag: "16-alpine" # <-- For PostgreSQL 16. Use "16.2", "16-alpine", etc. for specifics.
+            # Check tags at https://hub.docker.com/_/postgres/tags
+            # or https://hub.docker.com/r/bitnami/postgresql/tags
+  pullPolicy: IfNotPresent
+  # debug: true # Useful for Bitnami images to see environment variables during startup
+
+
+# --- Architecture: Replication (assuming from previous context) ---
+architecture: replication
+
+# --- PostgreSQL Authentication ---
+auth:
+  postgresPassword: "YourStrongSuperuserPassword!" # <-- CHANGE THIS!
+  replicationPassword: "YourStrongReplicationPassword!" # <-- CHANGE THIS!
+
+  # --- Define the Read-Only User ---
+  # This section will CREATE the user and optionally a dedicated database for them.
+  # The initdb script below will then restrict their permissions.
+  username: "readonly_app_user" # Name for your read-only user
+  password: "AVerySecureReadOnlyPassword!" # <-- CHANGE THIS for the read-only user
+  database: "app_main_db" # The database this user needs read access to.
+                          # If this database doesn't exist, the chart will create it
+                          # and this user will be the owner initially.
+                          # The initdb script will then adjust permissions.
+
+# --- Primary Node Configuration ---
+primary:
+  persistence:
+    enabled: true
+    size: 20Gi
+
+  service:
+    type: LoadBalancer # Exposing primary via LoadBalancer
+    port: 5432
+
+  # --- Initialization Scripts for the Primary ---
+  # These scripts run when the primary database is first initialized.
+  # The read-only user and their database (if specified in auth.database)
+  # will typically be created by the chart *before* these scripts run.
+  initdb:
+    scripts:
+      # The key (e.g., "01_grant_readonly_permissions.sh") is just a filename/label for the script.
+      # Scripts are executed in lexicographical order of their keys.
+      "01_grant_readonly_permissions.sh": |
+        #!/bin/bash
+        set -e # Exit immediately if a command exits with a non-zero status.
+
+        # Database and user for read-only access (should match auth section)
+        TARGET_DB="${POSTGRES_DATABASE:-app_main_db}" # The database specified in auth.database for the readonly_app_user
+        READONLY_USER="${POSTGRES_USER:-readonly_app_user}" # The user specified in auth.username for readonly permissions
+
+        # The 'postgres' superuser, used to connect and grant permissions
+        PG_SUPERUSER="${POSTGRES_POSTGRES_USER:-postgres}"
+
+        echo "Granting read-only permissions to user '$READONLY_USER' on database '$TARGET_DB'..."
+
+        # Connect to the target database AS THE SUPERUSER to grant permissions
+        psql -v ON_ERROR_STOP=1 --username "$PG_SUPERUSER" --dbname "$TARGET_DB" <<-EOSQL
+            -- Ensure the user can connect to the specified database
+            GRANT CONNECT ON DATABASE "$TARGET_DB" TO "$READONLY_USER";
+
+            -- Grant usage on the public schema (or specific schemas you use)
+            -- Without USAGE, the user cannot even "see" objects within the schema.
+            GRANT USAGE ON SCHEMA public TO "$READONLY_USER";
+
+            -- Grant SELECT permission on all current tables in the public schema
+            GRANT SELECT ON ALL TABLES IN SCHEMA public TO "$READONLY_USER";
+
+            -- IMPORTANT: Grant SELECT on future tables created in the public schema
+            -- This ensures that if new tables are added, the read-only user automatically
+            -- gets SELECT permission on them.
+            ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO "$READONLY_USER";
+
+            -- Optional: If the user needs to list tables/views using \dt, \dv etc. in psql,
+            -- or if your application relies on querying system catalogs for sequence information.
+            -- GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO "$READONLY_USER";
+            -- GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO "$READONLY_USER";
+            -- ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON SEQUENCES TO "$READONLY_USER";
+            -- ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO "$READONLY_USER"; -- For nextval/currval if needed
+
+            -- Revoke any default privileges that might allow writing, if any were inadvertently granted
+            -- (though the above explicit grants are usually sufficient).
+            -- REVOKE CREATE ON SCHEMA public FROM "$READONLY_USER";
+            -- REVOKE ALL PRIVILEGES ON DATABASE "$TARGET_DB" FROM "$READONLY_USER"; -- Be careful, then re-grant CONNECT
+            -- It's generally better to grant only what's needed than to revoke broadly.
+
+            -- Note: If you use other schemas besides 'public', you'll need to repeat the
+            -- GRANT USAGE, GRANT SELECT, and ALTER DEFAULT PRIVILEGES commands for each of those schemas.
+        EOSQL
+        echo "Read-only permissions successfully granted to '$READONLY_USER' on database '$TARGET_DB'."
+
+# If you choose architecture: "replication"
+readReplicas:
+  replicaCount: 2
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: "-" # Use the same as primary or specify
+
+resources:
+  limits:
+    cpu: 1
+    memory: 2Gi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+# You can find all available parameters here:
+# https://github.com/bitnami/charts/blob/main/bitnami/postgresql/values.yaml

@@ -1,0 +1,128 @@
+# values.yml for TimescaleDB HA (1 Writer, 1 Reader)
+# Using the timescaledb/timescaledb-ha chart
+
+# Number of Patroni instances (pods).
+# Patroni will elect one as leader (writer) and the rest as replicas (readers).
+# For 1 writer and 1 reader, set replicaCount to 2.
+replicaCount: 2
+
+# Docker image for TimescaleDB
+image:
+  repository: timescaledb/timescaledb-multinode
+  # Find latest tags: https://hub.docker.com/r/timescale/timescaledb-ha/tags
+  # Example: postgresql-16-timescaledb-2.14
+  tag: "postgresql-16-timescaledb-2.14" #  <-- CHANGE THIS to your desired version
+  pullPolicy: IfNotPresent
+
+# Credentials:
+# It's STRONGLY recommended to create secrets outside the chart and reference them.
+# If you don't specify existing secrets, the chart will generate random passwords.
+# See "Create Kubernetes Secrets" section in the run guide.
+credentials:
+  # Superuser credentials for PostgreSQL
+  superuser:
+    # Name of the secret containing the superuser password
+    # Key within the secret should be 'password' or 'POSTGRES_PASSWORD'
+    existingSecret: "timescaledb-superuser-secret"
+    username: "postgres" # Default superuser, can be changed if needed
+  # Replication user credentials (used by Patroni for streaming replication)
+  replication:
+    # Name of the secret containing the replication password
+    # Key within the secret should be 'password' or 'PATRONI_REPLICATION_PASSWORD'
+    existingSecret: "timescaledb-replication-secret"
+    username: "replicator" # Default replication user
+
+# Patroni Configuration
+patroni:
+  # Configure PostgreSQL parameters.
+  # These are applied during bootstrap and can be changed later via Patroni API.
+  bootstrap:
+    dcs:
+      postgresql:
+        parameters:
+          max_connections: 100
+          shared_buffers: "256MB"  # Adjust based on your pod memory
+          # Add other PostgreSQL parameters here
+          # For TimescaleDB specific tuning, you might use timescaledb-tune later
+          # or set shared_preload_libraries explicitly if needed (usually handled by image)
+          # shared_preload_libraries: 'timescaledb'
+          # timescaledb.telemetry_level: 'off' # if you want to disable telemetry
+    pg_hba:
+      # Allow connections from within the cluster. Add more specific rules if needed.
+      - host all all 0.0.0.0/0 md5
+      - host replication all 0.0.0.0/0 md5
+
+# Persistence for Data and WAL
+# Ensure you have a StorageClass that supports dynamic provisioning.
+persistentVolumes:
+  # Data volume
+  data:
+    enabled: true
+    size: "20Gi" # Adjust as needed
+    # storageClass: "your-storage-class" # Uncomment and specify if not using default
+    # subPath: ""
+    # existingClaim: ""
+  # Write-Ahead Log volume (optional, but good for performance if on a separate faster disk)
+  wal:
+    enabled: false # Set to true if you want a separate WAL volume
+    # size: "10Gi"
+    # storageClass: "your-fast-storage-class" # Usually a faster disk
+
+# Resources for the TimescaleDB pods
+# Adjust these based on your expected load and available cluster resources.
+resources:
+  requests:
+    cpu: "500m"
+    memory: "1Gi"
+  limits:
+    cpu: "1"
+    memory: "2Gi"
+
+# Service Configuration
+# This chart creates two services:
+# - <release-name>-primary: Always points to the current leader (writer)
+# - <release-name>-replica: Points to all ready replicas (readers)
+service:
+  primary:
+    type: ClusterIP # Use LoadBalancer or NodePort for external access
+    # loadBalancerIP: # For LoadBalancer, if you need a static IP
+    # nodePort: # For NodePort, if you want to specify the port
+    port: 5432
+  replica:
+    type: ClusterIP # Use LoadBalancer or NodePort for external access
+    port: 5432
+
+# TimescaleDB-Tune
+# If enabled, timescaledb-tune will be run on initialization.
+# Requires resources.requests.memory to be set.
+timescaledbTune:
+  enabled: true
+
+# Backup configuration (pgBackRest)
+# This is disabled by default. For production, you MUST configure backups.
+# Example for S3 (requires S3 bucket and IAM credentials):
+# backup:
+#   enabled: true
+#   pgbackrest:
+#     image:
+#       repository: timescale/pgbackrest-repo-host
+#       tag: "latest" # Or specific version
+#     configuration:
+#       - secret:
+#           name: "timescaledb-pgbackrest-s3-config" # Secret containing S3 credentials
+#     repos:
+#       - name: repo1
+#         s3:
+#           bucket: "your-timescaledb-backup-bucket"
+#           endpoint: "s3.amazonaws.com" # Or your S3-compatible endpoint
+#           region: "us-east-1"
+#           # key and key-secret are expected in the secret
+#     # Schedule full and incremental backups
+#     # cron:
+#     #   full: "0 1 * * 0" # Every Sunday at 1 AM
+#     #   incremental: "0 1 * * 1-6" # Every other day at 1 AM
+
+# Other optional configurations:
+# - affinity, nodeSelector, tolerations for pod scheduling
+# - metrics for Prometheus integration
+# - tls for SSL connections

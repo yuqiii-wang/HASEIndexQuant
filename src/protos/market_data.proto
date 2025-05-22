@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+// Add a package specific to your Python structure to avoid conflicts
+package market_data_processor.protos;
+
+message QuoteData {
+  string timestamp = 1;
+  string symbol = 2;
+  double bid_price = 3;
+  double ask_price = 4;
+  int32 bid_size = 5;
+  int32 ask_size = 6;
+}
+
+message TradeData {
+  string timestamp = 1;
+  string symbol = 2;
+  double price = 3;
+  int32 volume = 4;
+  string condition = 5;
+}

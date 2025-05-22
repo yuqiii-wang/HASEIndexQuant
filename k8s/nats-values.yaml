@@ -1,0 +1,65 @@
+# values.yaml
+
+# Cluster Configuration
+cluster:
+  enabled: true
+  replicas: 3
+
+# Authentication
+auth:
+  enabled: true
+  # Basic User Credentials
+  user: myuser
+  password: "mypassword"
+  # System Account (for administrative access)
+  systemAccount: sys
+  systemAccountCredentials:
+    secret:
+      name: nats-sys-creds
+      key: sys.creds
+
+# JetStream Configuration
+jetstream:
+  enabled: true
+  # Persistence for JetStream
+  fileStorage:
+    storageDirectory: /data
+    storageClassName: standard
+    storageSize: 10Gi
+    accessModes:
+      - ReadWriteOnce
+
+# Monitoring (Prometheus Exporter)
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+
+# Network Configuration
+nats:
+  advertise: false
+  externalAccess: false
+  client:
+    port: 4222
+  cluster:
+    port: 6222
+  websocket:
+    port: 443
+
+# Resource Limits
+resources:
+  requests:
+    memory: "512Mi"
+    cpu: "250m"
+  limits:
+    memory: "1Gi"
+    cpu: "500m"
+
+# Persistence (for general NATS state)
+persistence:
+  enabled: true
+  storageSize: 5Gi
+  storageClassName: standard
+  accessModes:
+    - ReadWriteOnce
+
